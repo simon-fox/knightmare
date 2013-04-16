@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery.js" ></script>
+<style>
+
+body{
+	width: 100%;
+	height: 100%;
+}
+
+html {
+	width: 100%;
+	height: 100%;
+}
+
+#canvas {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+}
+
+</style>
+</head>
+<body>
+<p id="errors"></p>
+<p id="travelling"></p>
+<p id="velocity"></p>
+<p id="orientation"></p>
+<p id="movement"></p>
+
+<script>
+var x=document.getElementById("demo");
+var posArray = [];
+var delta = 0.0005;
+var gravity = 9.81;
+var threshold = 10;
+
+var velocity = {x:0,y:0,z:0};
+var distance = {x:0,y:0,z:0};
+var totalDistance = {x:0,y:0,z:0};
+var acceleration = {x:0,y:0,z:0};
+var averageAccel= {x:0,y:0,z:0};
+
+var motionEventArray = [];
+
+var lastTotalX = 0;
+var lastTotalY = 0;
+var drawFactor = 10000;
+
+///////////////////
+//timer prototype//
+///////////////////
+Function.prototype.scope = function(context) {
+    var f = this;
+    return function() {
+        return f.apply(context, arguments);
+    };
+};
+
+Timer = function() {
+    this.tick = 0;
+    this.intervalId = null;
+    this.period = 1000 * delta; // in ms
+    this.isPaused = false;
+};
+
+jQuery.extend(Timer.prototype, {
+
+    onTick: function() {
+        if (!this.isPaused) {
+            this.tick++;
+        }
+		
+		//average the array 
+		for (var i = 0; i<motionEventArray.length;i++){
+			averageAccel.x += motionEventArray[i].x;
+			averageAccel.y += motionEventArray[i].y;
+			averageAccel.z += motionEventArray[i].z;
+		}
+		
+		if (motionEventArray.length){
+			//$('#errors').html('motionEventArray has length');
+			for (var i in averageAccel){
+					averageAccel[i] = ((averageAccel[i] / motionEventArray.length) / delta);
+					distance[i] = 0.5 * averageAccel[i] * (delta * delta);
+					velocity[i] = averageAccel[i]*delta;
+			}
+			totalDistance.x += distance.x;
+			totalDistance.y += distance.y;
+			totalDistance.z += distance.z;
+
+
+		}
+		else{
+			//$('#errors').html('no length in motionEventArray');
+		}
+
+		$('#travelling').html("<br/> distance: " + Math.sqrt(totalDistance.x*totalDistance.x+totalDistance.y*totalDistance.y) +"<br/> velocity: " + Math.sqrt(velocity.x*velocity.x+velocity.y*velocity.y) +  "<br/> distance x: " + totalDistance.x + "<br/> distance y: " + totalDistance.y + "<br/> distance z: " + totalDistance.z + "<br/> average accel  x: " + averageAccel.x + "<br/> average accel  y: " + averageAccel.y + "<br/> average accel z: " + averageAccel.z);
+		
+		//clear the array 
+		motionEventArray = [];
+		
+		for (var i in averageAccel){
+			averageAccel[i] = 0.;
+		}
+
+    },
+
+    start: function() {
+        this.intervalId = setInterval(function() {this.onTick()}.scope(this), this.period);
+    },
+
+    pause: function() {
+        this.isPaused = !this.isPaused;
+    },
+
+    stop: function() {
+        clearInterval(this.intervalId);
+
+        var result = this.tick;
+        this.tick = 0.;
+        this.isPaused = false;
+
+        return result;
+    }
+});
+///////////////////////
+//END TIMER PROTOTYPE//
+///////////////////////
+var timer = new Timer();
+
+window.onload=function(){
+	var x=document.getElementById("demo");
+	timer.start();
+	
+	//device orientation
+	if (window.DeviceOrientationEvent) {
+		window.addEventListener("deviceorientation", function () {
+			$('#orientation').html("<br/> alpha: "+event.alpha+"<br/> beta: "+event.beta+"<br/> gamma: "+event.gamma);
+			//tilt([event.beta, event.gamma]);
+		}, true);
+	}
+	
+	//device motion
+	if (window.DeviceMotionEvent) {
+		window.addEventListener('devicemotion', function () {
+
+		
+		// Take acceleration form event and rescale to be in ms^{-2}
+		// Note: Iphone accelerometer units are in g (gravity)
+			var pushAccel= false;
+			acceleration.x=0;
+			acceleration.y=0;
+			acceleration.z=0;
+			
+		    if(Math.abs(gravity*event.acceleration.x)>threshold){
+				acceleration.x = gravity*event.acceleration.x;
+				pushAccel = true;
+			}
+			if(Math.abs(gravity*event.acceleration.y)>threshold){
+				acceleration.y = gravity*event.acceleration.y;
+				pushAccel = true;
+			}
+			if(Math.abs(gravity*event.acceleration.z)>threshold){
+				acceleration.z = gravity*event.acceleration.z;
+				pushAccel = true;
+			}
+			if(pushAccel){
+				motionEventArray.push(acceleration);
+				$('#errors').html('Pushing Value to Array');
+			}
+			
+			
+			$('#movement').html("<br/> accel x: " + event.acceleration.x + "<br/> accel y: "+ event.acceleration.y + "<br/> accel z: "+ event.acceleration.z);
+			
+		}, true);
+	}
+	
+
+	
+	
+	
+}
+
+
+</script>
+</body>
+</html>
+
